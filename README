@@ -15,6 +15,14 @@ EXAMPLE:
 ./dltb http://www.tamilat.com/tamilsongs
 
 
+TODO:
+- Ability to run multiple instances.. multi-threads
+- Introduce a blacklist (set of website which should
+  not be crawled - inorder to save time) - for example
+  http://www.melisai.com/gallery/ 
+- Make a chrome extension for this! 
+- Error checking and descriptive error messages
+- Logs
 
 ==================================
 Global setup:

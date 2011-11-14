@@ -3,7 +3,6 @@ DLTB = Download tamilbeat
 
 
 Introduction:
-
 Given an URL as a input, dltb downloads all the mp3 
 files! 
 
@@ -11,5 +10,32 @@ files!
 USAGE:
 ./dltb <tamilbeat.com URL>
 
+
+==================================
+Global setup:
+ Set up git
+  git config --global user.name "Sangeeth Saravanaraj"
+  git config --global user.email sangeeth.saravanaraj@gmail.com
+      
+Next steps:
+  mkdir dltb
+  cd dltb
+  git init
+  touch README
+  git add README
+  git commit -m 'first commit'
+  git remote add origin git@github.com:sangeeths/dltb.git
+  git push -u origin master
+      
+Existing Git Repo?
+  cd existing_git_repo
+  git remote add origin git@github.com:sangeeths/dltb.git
+  git push -u origin master
+      
+Importing a Subversion Repo?
+  Click here
+      
+When you're done:
+  Continue
 
 

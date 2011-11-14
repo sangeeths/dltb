@@ -11,6 +11,11 @@ USAGE:
 ./dltb <tamilbeat.com URL>
 
 
+EXAMPLE:
+./dltb http://www.tamilat.com/tamilsongs
+
+
+
 ==================================
 Global setup:
  Set up git

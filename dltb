@@ -1,0 +1,162 @@
+#!/bin/bash
+
+#  
+# $1	= Command line argument - tb url
+# tb_f 	= Temp file which contains TamilBeat webpage content
+# pt	= Pattern to look for mp3 files in tb_f
+# mn	= Movie name
+# sn	= Song name
+
+tb_f=`pwd`/.tb_f
+pt="\.mp3"
+
+
+usage() {
+	echo "Usage: dl_tb <tamilbeat.com URL>"
+	exit 
+}
+
+delete_temps() {
+	rm -rf $tb_f
+}
+
+create_temps() {
+	delete_temps
+	touch $tb_f
+}
+
+# TODO: check why %20 is not getting replaced
+# 		with _ in movie_name
+get_mn() {
+	local a=(`echo ${surls[0]} | tr "/" " "`)
+	local len=${#a[@]}
+	mn=`echo ${a[len-2]} | sed 's/%20/_/g'` 
+	mkdir -p $mn
+}
+
+get_sn() {
+	local a=(`echo $1 | tr "/" " "`)
+	local len=${#a[@]}
+	sn=`echo ${a[len-1]} | sed 's/TamilBeat.Com%20-%20//g' | sed 's/%20/_/g'` 
+}
+
+mp3_found() {
+	GET $1 > $tb_f
+	[[ $(cat $tb_f | grep $pt | wc -l) -eq 0 ]] && return 0
+	surls=(`cat $tb_f | grep $pt | awk 'BEGIN{FS="href=\""}{print $2}' | sed 's/\">/\n/g'`)
+	get_mn $surls
+ 	return 1
+}
+
+tbmp3_dload() {
+	command="wget -q -O $1/$2 $3"
+	echo "Downloading $1/$2"
+	$command
+}
+
+tb_dload_mp3() {
+	echo "downloading.."
+	for surl in ${surls[@]}
+	do
+		[[ $(echo $surl | grep $pt | wc -l) -eq 0 ]] && continue
+		get_sn $surl
+		tbmp3_dload $mn $sn $surl
+	done
+}
+
+add_url_to_crawl_list() {
+	for u in ${tb_urls[*]}
+	do
+		if [[ $u == $1 ]] ; then
+			echo "$u already present.. so no adding"
+			return
+		fi
+	done
+		
+	echo "adding -$1- to the master list"
+	tb_urls=("${tb_urls[@]}" $1)
+	return
+}
+
+get_urls() {
+	echo "crawling.."
+	GET $1 > $tb_f
+	base_url=`echo $1 | sed 's/\.com.*/\.com/g'`
+
+	if [[ $1 =~ \.*.html$ ]] ; then
+    	onel_url=`echo $1 | sed 's/\/[a-zA-Z0-9%_.-]*\/[a-zA-Z0-9%_.-]*$//g'`
+	else
+	    onel_url=`echo $1 | sed 's/\/[a-zA-Z0-9%_.-]*$//g'`
+	fi
+
+	local i=0
+
+	crawl_wp_urls=(`cat $tb_f | awk 'BEGIN{FS="href=\""}{print $2}' | sed '/^$/d' | sed 's/\".*//g' | sed 's/\/$//g' | uniq`)
+
+	for url in ${crawl_wp_urls[*]}
+	do
+	    if [[ $url =~ ^\/ ]] ; then
+    	    crawl_wp_urls[$i]="$base_url$url"
+	    fi 
+
+	    if [[ $url =~ ^\.\. ]] ; then
+    	    local temp=`echo $url | sed 's/^\.\.//g'`
+        	crawl_wp_urls[$i]="$onel_url$temp"
+	    fi  
+		
+		if [[ ${crawl_wp_urls[$i]} =~ ^http ]] ; then 
+			add_url_to_crawl_list ${crawl_wp_urls[$i]}
+			#tb_urls=("${tb_urls[@]}" ${crawl_wp_urls[$i]})
+		fi
+
+		let i=$i+1
+	done
+
+	return
+}
+
+tb_crawl() {
+	echo "============================================="
+	for tb_url in ${tb_urls[@]}
+	do
+		echo $tb_url
+	done
+	echo "============================================="
+
+	if [[ $index -lt ${#tb_urls[*]} ]] ; then 
+
+	#for tb_url in ${tb_urls[@]}
+	#do
+		index_url=${tb_urls[$index]}
+		let index=$index+1
+
+		echo $index_url
+		mp3_found $index_url
+
+		if [ $? -eq 1 ] ; then
+			tb_dload_mp3 
+			tb_crawl
+		else	
+			get_urls $index_url
+			tb_crawl
+		fi		
+
+	fi
+		
+	#done
+	return 
+}
+
+
+[[ $# -ne 1 ]] && usage
+create_temps
+
+tb_urls=$1
+index=0
+
+tb_crawl 
+
+delete_temps
+
+readonly -f usage
+

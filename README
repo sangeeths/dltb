@@ -1,10 +1,25 @@
-DLTB = Download tamilbeat
+NOTE: 
+This is only for the users of tamilbeat.com
+
+
+CAUTION: 
+This script may not work for other websites. 
+It was intended for tamilbeat.com only.
+
+
+DLTB = Download tamilbeat.com
        ^   ^    ^    ^
 
 
-Introduction:
-Given an URL as a input, dltb downloads all the mp3 
-files! 
+INTRODUCTION:
+As a lazy tamilbeat.com user, I find it very hard 
+to right-click on each hyper-link to save the mp3
+files. I wish there is a better way! My frustration
+made me to write this script!!
+
+So, for a given URL, dltb will browse it, identify 
+all the hyper-links for mp3 files and downloads 
+them to your hdd.
 
 
 USAGE:
@@ -12,7 +27,15 @@ USAGE:
 
 
 EXAMPLE:
+To download _all_ the mp3 songs available in tamilbeat.com, 
+do the following! It will take 3-5 hours and you may need 
+15-17G for hdd space.
 ./dltb http://www.tamilat.com/tamilsongs
+
+To download _all_songs_of_a_particular_movie, do the 
+following:
+./dltb <tamilbeat-url-for-that-movie>
+./dltb http://www.tamilbeat.com/tamilsongs/inter/TajMahal/
 
 
 TODO:
@@ -23,32 +46,8 @@ TODO:
 - Make a chrome extension for this! 
 - Error checking and descriptive error messages
 - Logs
-
-==================================
-Global setup:
- Set up git
-  git config --global user.name "Sangeeth Saravanaraj"
-  git config --global user.email sangeeth.saravanaraj@gmail.com
-      
-Next steps:
-  mkdir dltb
-  cd dltb
-  git init
-  touch README
-  git add README
-  git commit -m 'first commit'
-  git remote add origin git@github.com:sangeeths/dltb.git
-  git push -u origin master
-      
-Existing Git Repo?
-  cd existing_git_repo
-  git remote add origin git@github.com:sangeeths/dltb.git
-  git push -u origin master
-      
-Importing a Subversion Repo?
-  Click here
-      
-When you're done:
-  Continue
+- Interactive - If there are 5 songs in the given URL, 
+  then download them and ask "should I crawl this page?"
+  if yes, then crawl, else halt
 
 

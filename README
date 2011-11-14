@@ -1,0 +1,15 @@
+DLTB = Download tamilbeat
+       ^   ^    ^    ^
+
+
+Introduction:
+
+Given an URL as a input, dltb downloads all the mp3 
+files! 
+
+
+USAGE:
+./dltb <tamilbeat.com URL>
+
+
+

@@ -1,32 +1,32 @@
 #!/bin/bash
 
-#  
-# $1	= Command line argument - tb url
-# tb_f 	= Temp file which contains TamilBeat webpage content
-# pt	= Pattern to look for mp3 files in tb_f
-# mn	= Movie name
-# sn	= Song name
-
-tb_f=`pwd`/.tb_f
-pt="\.mp3"
-
-
 usage() {
-	echo "Usage: dl_tb <tamilbeat.com URL>"
+    echo
+	echo "Usage:"
+    echo
+    echo "dltb [-c|--crawl]
+     [-d|--debug] 
+     [-l|--log <filename>]
+     [-u|--url <url>]"
+    echo
+    echo "-c|--crawl        After downloading mp3's, explore this
+                  webpage and crawl the hyperlinks to 
+                  find more mp3's; Default: off"
+    echo
+    echo "-d|--debug        Turn debug on; Default: off"
+    echo
+    echo "-l|--log <file>   Enable logging to <file>; Default: off"
+    echo
+    echo "-u|--url          Tamilbeat url;
+                  Default: $default_url"
+    echo
 	exit 
 }
 
-delete_temps() {
-	rm -rf $tb_f
-}
-
-create_temps() {
-	delete_temps
-	touch $tb_f
-}
-
-# TODO: check why %20 is not getting replaced
-# 		with _ in movie_name
+##
+# Parse the given url and gets the movie name
+# and stores it in $mn
+#
 get_mn() {
 	local a=(`echo ${surls[0]} | tr "/" " "`)
 	local len=${#a[@]}
@@ -34,33 +34,60 @@ get_mn() {
 	mkdir -p $mn
 }
 
+##
+# Parse the given url and get the song name
+# and stores it in $sn
+#
 get_sn() {
 	local a=(`echo $1 | tr "/" " "`)
 	local len=${#a[@]}
 	sn=`echo ${a[len-1]} | sed 's/TamilBeat.Com%20-%20//g' | sed 's/%20/_/g'` 
 }
 
+##
+# Browse the page and see whether there is any
+# mp3 url available for download
+#
+# If mp3 present: 
+#   surls:  This is an array of all the mp3 urls
+#   mn:     This contains the movie name 
+#   returns 1
+#
+# If mp3 not present:
+#   returns 0
+#
 mp3_found() {
 	GET $1 > $tb_f
-	[[ $(cat $tb_f | grep $pt | wc -l) -eq 0 ]] && return 0
-	surls=(`cat $tb_f | grep $pt | awk 'BEGIN{FS="href=\""}{print $2}' | sed 's/\">/\n/g'`)
+	[[ $(cat $tb_f | grep "\.mp3" | wc -l) -eq 0 ]] && return 0
+	surls=(`cat $tb_f | grep "\.mp3" | awk 'BEGIN{FS="href=\""}{print $2}' | sed 's/\">/\n/g'`)
 	get_mn $surls
  	return 1
 }
 
-tbmp3_dload() {
-	command="wget -q -O $1/$2 $3"
-	echo "Downloading $1/$2"
-	$command
-}
-
-tb_dload_mp3() {
-	echo "downloading.."
+##
+# For all the urls in the $surls global variable,
+#   0. Ignore any blank lines (glitch)
+#   1. get the song name
+#   2. form the wget command
+#   3. execute the wget command
+#
+# This function assumes the following:
+#   1. $surls will contains array of mp3 urls
+#   2. $mn will contain the movie name
+#
+dload_mp3() {
 	for surl in ${surls[@]}
 	do
-		[[ $(echo $surl | grep $pt | wc -l) -eq 0 ]] && continue
+	    # Ignore blank lines, if any!
+    	[[ $(echo $surl | grep "\.mp3" | wc -l) -eq 0 ]] && continue
+        
+        # Get the song name from the url
 		get_sn $surl
-		tbmp3_dload $mn $sn $surl
+
+        # Build the command and execute it!
+    	echo "D. $mn/$sn"
+	    command="wget -q -O $mn/$sn $surl"
+    	$command
 	done
 }
 
@@ -116,47 +143,104 @@ get_urls() {
 }
 
 tb_crawl() {
-	echo "============================================="
-	for tb_url in ${tb_urls[@]}
-	do
-		echo $tb_url
-	done
-	echo "============================================="
+	if [[ $debug -eq 1 ]] ; then
+		echo "============================================="
+		echo "       List of url's in the master-list"
+		echo "---------------------------------------------"
+		for tb_url in ${tb_urls[@]}
+		do
+			echo $tb_url
+		done	
+		echo "============================================="
+	fi
 
 	if [[ $index -lt ${#tb_urls[*]} ]] ; then 
 
-	#for tb_url in ${tb_urls[@]}
-	#do
 		index_url=${tb_urls[$index]}
 		let index=$index+1
 
-		echo $index_url
-		mp3_found $index_url
+		[[ $debug -eq 1 ]] && echo "URL being crawled - $index_url"
 
+		mp3_found $index_url
 		if [ $? -eq 1 ] ; then
-			tb_dload_mp3 
-			tb_crawl
+			dload_mp3 
 		else	
 			get_urls $index_url
-			tb_crawl
 		fi		
+
+        [[ $crawl -eq 1 ]] && tb_crawl
 
 	fi
 		
-	#done
 	return 
 }
 
+##
+# default URL
+default_url="http://www.tamilbeat.com/tamilsongs"
 
-[[ $# -ne 1 ]] && usage
-create_temps
-
-tb_urls=$1
+##
+# Index of the master list - tb_urls
 index=0
 
+##
+# temp file which stores the webpage
+# content; used for all string parsing
+tb_f=`pwd`/.tb_f
+
+##
+# Global variables
+# initialize it to default values
+tb_urls=$default_url
+debug=0
+log=0
+crawl=0
+
+##
+# Process command line arguments and
+# set all the global arguments
+while [[ "$1" != "" ]] ; do
+    case $1 in
+        --debug | -d )      debug=1
+                            ;;  
+        -u | --url )        shift
+                            url=1
+                            tb_urls=$1  
+                            ;;  
+        -l | --log )        shift
+                            log=1
+                            log_file=$1
+                            ;;  
+        -c | --crawl )      crawl=1
+                            ;;  
+        * )                 usage
+                            exit
+        esac
+        shift
+done
+
+if [[ $debug -eq 1 ]] ; then    
+    echo "The command line arugments are :"
+    if [[ $debug -eq 1 ]] ; then
+        echo "debug = on"
+    else
+        echo "debug = off"
+    fi
+
+    echo "url = $tb_urls"
+
+    if [[ $log -eq 1 ]] ; then
+        echo "log = $log_file"
+    else
+        echo "log = off"
+    fi
+    
+    if [[ $crawl -eq 1 ]] ; then
+        echo "crawl = on"
+    else
+        echo "crawl = off"
+    fi
+fi
+
 tb_crawl 
-
-delete_temps
-
-readonly -f usage
 

@@ -24,11 +24,18 @@ usage() {
 }
 
 ##
+# Single line and double line used for printing
+# only in debug modes
+#
+single_line=$(seq -s "-" 60 | sed 's/[0-9]//g')
+double_line=$(seq -s "=" 60 | sed 's/[0-9]//g')
+
+##
 # Parse the given url and gets the movie name
 # and stores it in $mn
 #
 get_mn() {
-	local a=(`echo ${surls[0]} | tr "/" " "`)
+	local a=(`echo $1 | tr "/" " "`)
 	local len=${#a[@]}
 	mn=`echo ${a[len-2]} | sed 's/%20/_/g'` 
 	mkdir -p $mn
@@ -44,38 +51,38 @@ get_sn() {
 	sn=`echo ${a[len-1]} | sed 's/TamilBeat.Com%20-%20//g' | sed 's/%20/_/g'` 
 }
 
-##
 # Browse the page and see whether there is any
 # mp3 url available for download
+#
+# If mp3 not present:
+#   returns
 #
 # If mp3 present: 
 #   surls:  This is an array of all the mp3 urls
 #   mn:     This contains the movie name 
-#   returns 1
+#   sn:     This contains the song name 
 #
-# If mp3 not present:
-#   returns 0
-#
-mp3_found() {
-	GET $1 > $tb_f
-	[[ $(cat $tb_f | grep "\.mp3" | wc -l) -eq 0 ]] && return 0
-	surls=(`cat $tb_f | grep "\.mp3" | awk 'BEGIN{FS="href=\""}{print $2}' | sed 's/\">/\n/g'`)
-	get_mn $surls
- 	return 1
-}
-
-##
-# For all the urls in the $surls global variable,
+# For all the urls in the $surls,
 #   0. Ignore any blank lines (glitch)
 #   1. get the song name
 #   2. form the wget command
 #   3. execute the wget command
 #
-# This function assumes the following:
-#   1. $surls will contains array of mp3 urls
-#   2. $mn will contain the movie name
-#
 dload_mp3() {
+    # get the url content
+	GET $1 > $tb_f
+    
+    # If the crawled url doesn't contain mp3's 
+    # then return
+	[[ $(cat $tb_f | grep "\.mp3" | wc -l) -eq 0 ]] && return 
+
+    # All the available mp3 url's will be stored
+    # in $surls 
+	local surls=(`cat $tb_f | grep "\.mp3" | awk 'BEGIN{FS="href=\""}{print $2}' | sed 's/\">/\n/g'`)
+	
+    # The movie name will be available in $mn
+    get_mn ${surls[0]}
+
 	for surl in ${surls[@]}
 	do
 	    # Ignore blank lines, if any!
@@ -91,34 +98,78 @@ dload_mp3() {
 	done
 }
 
+##
+# Displays the master list, which contains all 
+# URLs the is being worked on.
+#
+# This function will be called mostly on 
+# debug mode
+#
+display_master_list() {
+    echo $double_line
+    echo "       List of url's in the master-list"
+    echo $single_line
+    for tb_url in ${tb_urls[@]}
+    do
+        echo $tb_url
+    done	
+    echo $double_line
+}
+
+## 
+# Check whether the incoming url is present
+# in the master list ($tb_urls).
+# 
+# If present, ignore.
+# If not present, then add it to the master list
+#
 add_url_to_crawl_list() {
 	for u in ${tb_urls[*]}
 	do
 		if [[ $u == $1 ]] ; then
-			echo "$u already present.. so no adding"
+			[[ $debug -eq 1 ]] && echo "Ignoring - $u"
 			return
 		fi
 	done
 		
-	echo "adding -$1- to the master list"
+	[[ $debug -eq 1 ]] && echo "Adding - $1"
+    
+    # add the incoming url to the master list
 	tb_urls=("${tb_urls[@]}" $1)
 	return
 }
 
-get_urls() {
-	echo "crawling.."
+##
+# Paser the incoming url to find more url's to crawl
+#
+update_tb_urls() {
+	echo "C. $1"
 	GET $1 > $tb_f
-	base_url=`echo $1 | sed 's/\.com.*/\.com/g'`
+    
+    # $base_url is just the domain name
+    # f.e. http://www.tamilbeat.com
+    # http://www.tamilat.com
+	local base_url=`echo $1 | sed 's/\.com.*/\.com/g'`
 
+    # $onel_url is the domain name + the immediate folder
+    # f.e http://www.tamilbeat.com/tamilsongs
+    #
+    # NOTE: 
+    # $base_url and $onel_url are needed to parse and crawl 
+    # the url's which starts with / or ../
+    # f.e. if we come across a href="../abc" then it means
+    # $onel_url + abc
 	if [[ $1 =~ \.*.html$ ]] ; then
-    	onel_url=`echo $1 | sed 's/\/[a-zA-Z0-9%_.-]*\/[a-zA-Z0-9%_.-]*$//g'`
+    	local onel_url=`echo $1 | sed 's/\/[a-zA-Z0-9%_.-]*\/[a-zA-Z0-9%_.-]*$//g'`
 	else
-	    onel_url=`echo $1 | sed 's/\/[a-zA-Z0-9%_.-]*$//g'`
+	    local onel_url=`echo $1 | sed 's/\/[a-zA-Z0-9%_.-]*$//g'`
 	fi
 
 	local i=0
 
-	crawl_wp_urls=(`cat $tb_f | awk 'BEGIN{FS="href=\""}{print $2}' | sed '/^$/d' | sed 's/\".*//g' | sed 's/\/$//g' | uniq`)
+    # The given url's are parsed for new unique url's. 
+    # They are stored in $crawl_wp_urls array
+	local crawl_wp_urls=(`cat $tb_f | awk 'BEGIN{FS="href=\""}{print $2}' | sed '/^$/d' | sed 's/\".*//g' | sed 's/\/$//g' | uniq`)
 
 	for url in ${crawl_wp_urls[*]}
 	do
@@ -133,7 +184,6 @@ get_urls() {
 		
 		if [[ ${crawl_wp_urls[$i]} =~ ^http ]] ; then 
 			add_url_to_crawl_list ${crawl_wp_urls[$i]}
-			#tb_urls=("${tb_urls[@]}" ${crawl_wp_urls[$i]})
 		fi
 
 		let i=$i+1
@@ -142,37 +192,38 @@ get_urls() {
 	return
 }
 
+##
+# $tb_urls = master list of all the url's 
+# $index = the url that is currently being 
+#          worked on..
+#
+# if $index < size_of(tb_urls) ; then
+#   1. Take the index_url (then increment $index)
+#       1.1. Find whether there is any mp3 files
+#           1.1.1. If any, download them
+#   2. If crawl is enabled (-c | --crawl), then 
+#      crawl this page, parse the urls and 
+#      update the master list (tb_urls)
+#
 tb_crawl() {
-	if [[ $debug -eq 1 ]] ; then
-		echo "============================================="
-		echo "       List of url's in the master-list"
-		echo "---------------------------------------------"
-		for tb_url in ${tb_urls[@]}
-		do
-			echo $tb_url
-		done	
-		echo "============================================="
-	fi
+    [[ $debug -eq 1 ]] && display_master_list
 
+    # If there are more url's to be crawled
 	if [[ $index -lt ${#tb_urls[*]} ]] ; then 
 
 		index_url=${tb_urls[$index]}
 		let index=$index+1
 
-		[[ $debug -eq 1 ]] && echo "URL being crawled - $index_url"
+        dload_mp3 $index_url
 
-		mp3_found $index_url
-		if [ $? -eq 1 ] ; then
-			dload_mp3 
-		else	
-			get_urls $index_url
-		fi		
-
-        [[ $crawl -eq 1 ]] && tb_crawl
+        # if -c | --crawl option is set, then
+        # crawl the next url in the master list 
+        if [[ $crawl -eq 1 ]] ; then 
+			update_tb_urls $index_url
+            tb_crawl
+        fi
 
 	fi
-		
-	return 
 }
 
 ##
@@ -219,6 +270,9 @@ while [[ "$1" != "" ]] ; do
         shift
 done
 
+##
+# The following prints the command line
+# values on the debug mode
 if [[ $debug -eq 1 ]] ; then    
     echo "The command line arugments are :"
     if [[ $debug -eq 1 ]] ; then

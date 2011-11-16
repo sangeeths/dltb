@@ -23,31 +23,58 @@ them to your hdd.
 
 
 USAGE:
-./dltb <tamilbeat.com URL>
+dltb [-c|--crawl]
+     [-d|--debug]
+     [-l|--log <filename>]
+     [-u|--url <url>]
+
+-c|--crawl        After downloading mp3's, explore this
+                  webpage and crawl the hyperlinks to
+                  find more mp3's; Default: off
+
+-d|--debug        Turn debug on; Default: off
+
+-l|--log <file>   Enable logging to <file>; Default: off
+
+-u|--url          Tamilbeat url;
+                  Default: http://www.tamilbeat.com/tamilsongs
 
 
 EXAMPLE:
-To download _all_ the mp3 songs available in tamilbeat.com, 
-do the following! It will take 3-5 hours and you may need 
-15-17G for hdd space.
-./dltb http://www.tamilat.com/tamilsongs
+1. To download _all_ the mp3 songs available in tamilbeat.com, 
+   do the following! It will take 3-5 hours and you may need 
+   15-17G for hdd space.
 
-To download _all_songs_of_a_particular_movie, do the 
-following:
-./dltb <tamilbeat-url-for-that-movie>
-./dltb http://www.tamilbeat.com/tamilsongs/inter/TajMahal/
+    ./dltb -u http://www.tamilbeat.com
+2. To download _all_songs_of_a_particular_movie, do the 
+   following:
+    ./dltb -u <tamilbeat-url-for-that-movie>
+    ./dltb -u http://www.tamilbeat.com/tamilsongs/inter/TajMahal/
+[see -d, -l and -c options below]
 
 
 TODO:
 - Ability to run multiple instances.. multi-threads
-- Introduce a blacklist (set of website which should
-  not be crawled - inorder to save time) - for example
-  http://www.melisai.com/gallery/ 
 - Make a chrome extension for this! 
 - Error checking and descriptive error messages
-- Logs
-- Interactive - If there are 5 songs in the given URL, 
-  then download them and ask "should I crawl this page?"
-  if yes, then crawl, else halt
 
 
+LOG:
+To get the logs written into a file, use -l | --log 
+option followed by the log file name. When the log
+file name is not give, the default value "log_dltb"
+will be assumed.
+
+
+DEBUG:
+To run this script in the debug mode, use -d | --debug
+option in the command line.
+
+
+CRAWL:
+To further crawl the given url (to search for potential
+mp3 downloads), use -c | --crawl option in the command
+line.
+
+
+__END__

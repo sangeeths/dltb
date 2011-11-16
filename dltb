@@ -1,25 +1,55 @@
 #!/bin/bash
 
+##
+#
+# Author: Sangeeth Saravanaraj
+# E-mail: sangeeth.saravanaraj@gmail.com
+#
+##
+
+##
+# out function prints to the stdout
+#
+# $1 could be one of the following
+#   1. d = debug
+#   2. p = print
+#   3. l = log
+#
+# $2 contains the content to the printed!
+#
+out() {
+    local stdout=0
+    if [[ $1 =~ .*d.* ]] && [[ $debug -eq 1 ]] ; then 
+        echo $2
+        stdout=1
+    fi  
+    [[ $1 =~ .*p.* ]] && [[ $stdout -eq 0 ]] && echo $2
+    [[ $1 =~ .*l.* ]] && [[ $log -eq 1 ]] && echo $2 >> $log_file
+}
+
+##
+# displays help!
+#
 usage() {
-    echo
+    echo 
 	echo "Usage:"
-    echo
-    echo "dltb [-c|--crawl]
-     [-d|--debug] 
-     [-l|--log <filename>]
-     [-u|--url <url>]"
-    echo
-    echo "-c|--crawl        After downloading mp3's, explore this
-                  webpage and crawl the hyperlinks to 
-                  find more mp3's; Default: off"
-    echo
+    echo 
+    echo "dltb [-c|--crawl]"
+    echo "     [-d|--debug]"
+    echo "     [-l|--log <filename>]"
+    echo "     [-u|--url <url>]"
+    echo 
+    echo "-c|--crawl        After downloading mp3's, explore this"
+    echo "                  webpage and crawl the hyperlinks to"
+    echo "                  find more mp3's; Default: off"
+    echo 
     echo "-d|--debug        Turn debug on; Default: off"
-    echo
+    echo 
     echo "-l|--log <file>   Enable logging to <file>; Default: off"
-    echo
-    echo "-u|--url          Tamilbeat url;
-                  Default: $default_url"
-    echo
+    echo 
+    echo "-u|--url          Tamilbeat url;"
+    echo "                  Default: $default_url"
+    echo 
 	exit 
 }
 
@@ -92,7 +122,7 @@ dload_mp3() {
 		get_sn $surl
 
         # Build the command and execute it!
-    	echo "D. $mn/$sn"
+    	out "ldp" "D. $mn/$sn"
 	    command="wget -q -O $mn/$sn $surl"
     	$command
 	done
@@ -106,14 +136,14 @@ dload_mp3() {
 # debug mode
 #
 display_master_list() {
-    echo $double_line
-    echo "       List of url's in the master-list"
-    echo $single_line
+    out "dl" "$double_line"
+    out "dl" "       List of url's in the master-list"
+    out "dl" "$single_line"
     for tb_url in ${tb_urls[@]}
     do
-        echo $tb_url
+        out "dl" "$tb_url"
     done	
-    echo $double_line
+    out "dl" "$double_line"
 }
 
 ## 
@@ -127,23 +157,22 @@ add_url_to_crawl_list() {
 	for u in ${tb_urls[*]}
 	do
 		if [[ $u == $1 ]] ; then
-			[[ $debug -eq 1 ]] && echo "Ignoring - $u"
+			[[ $debug -eq 1 ]] && out "dl" "Ignoring - $u"
 			return
 		fi
 	done
 		
-	[[ $debug -eq 1 ]] && echo "Adding - $1"
+	[[ $debug -eq 1 ]] && out "dl" "Adding - $1"
     
     # add the incoming url to the master list
 	tb_urls=("${tb_urls[@]}" $1)
-	return
 }
 
 ##
 # Paser the incoming url to find more url's to crawl
 #
 update_tb_urls() {
-	echo "C. $1"
+	out "dlp" "C. $1"
 	GET $1 > $tb_f
     
     # $base_url is just the domain name
@@ -165,31 +194,42 @@ update_tb_urls() {
 	    local onel_url=`echo $1 | sed 's/\/[a-zA-Z0-9%_.-]*$//g'`
 	fi
 
-	local i=0
-
     # The given url's are parsed for new unique url's. 
     # They are stored in $crawl_wp_urls array
 	local crawl_wp_urls=(`cat $tb_f | awk 'BEGIN{FS="href=\""}{print $2}' | sed '/^$/d' | sed 's/\".*//g' | sed 's/\/$//g' | uniq`)
 
 	for url in ${crawl_wp_urls[*]}
 	do
+        # The following are the _black_listed_items_
+        # so, ignore them!
+        [[ $url =~ \.mp3$ ]] && continue
+        [[ $url =~ \.m3u$ ]] && continue
+        [[ $url =~ \.css$ ]] && continue
+        [[ $url =~ .*\/cinenews\/.* ]] && continue
+        [[ $url =~ .*\/gallery\/.* ]] && continue
+        [[ $url =~ .*\/trailers\/.* ]] && continue
+
+        # Any url that starts with a / should be
+        # resolved with the $base_url
 	    if [[ $url =~ ^\/ ]] ; then
-    	    crawl_wp_urls[$i]="$base_url$url"
+    	    url="$base_url$url"
 	    fi 
 
+        # Any url that starts with .. should be 
+        # resolved with the #onel_url
 	    if [[ $url =~ ^\.\. ]] ; then
     	    local temp=`echo $url | sed 's/^\.\.//g'`
-        	crawl_wp_urls[$i]="$onel_url$temp"
+        	url="$onel_url$temp"
 	    fi  
-		
-		if [[ ${crawl_wp_urls[$i]} =~ ^http ]] ; then 
-			add_url_to_crawl_list ${crawl_wp_urls[$i]}
+            
+        # After all the above validations, the url
+        # should start with http to be considered to be 
+        # a valid url. If found valid, then add 
+        # to master list
+		if [[ $url =~ ^http\:\/\/www\. ]] ; then 
+			add_url_to_crawl_list $url
 		fi
-
-		let i=$i+1
 	done
-
-	return
 }
 
 ##
@@ -206,7 +246,9 @@ update_tb_urls() {
 #      update the master list (tb_urls)
 #
 tb_crawl() {
-    [[ $debug -eq 1 ]] && display_master_list
+    # if running in debug or log mode, then
+    # display the master list
+    display_master_list
 
     # If there are more url's to be crawled
 	if [[ $index -lt ${#tb_urls[*]} ]] ; then 
@@ -222,13 +264,16 @@ tb_crawl() {
 			update_tb_urls $index_url
             tb_crawl
         fi
-
 	fi
 }
 
 ##
 # default URL
 default_url="http://www.tamilbeat.com/tamilsongs"
+
+##
+# default log file name
+default_log_file="log_dltb"
 
 ##
 # Index of the master list - tb_urls
@@ -243,6 +288,7 @@ tb_f=`pwd`/.tb_f
 # Global variables
 # initialize it to default values
 tb_urls=$default_url
+log_file=$default_log_file
 debug=0
 log=0
 crawl=0
@@ -273,28 +319,16 @@ done
 ##
 # The following prints the command line
 # values on the debug mode
-if [[ $debug -eq 1 ]] ; then    
-    echo "The command line arugments are :"
-    if [[ $debug -eq 1 ]] ; then
-        echo "debug = on"
-    else
-        echo "debug = off"
-    fi
-
-    echo "url = $tb_urls"
-
-    if [[ $log -eq 1 ]] ; then
-        echo "log = $log_file"
-    else
-        echo "log = off"
-    fi
-    
-    if [[ $crawl -eq 1 ]] ; then
-        echo "crawl = on"
-    else
-        echo "crawl = off"
-    fi
-fi
+out "dl" "The command line arugments are :"
+out "dl" "url       = $tb_urls"
+[[ $debug -eq 1 ]] && out "dl" "debug   = on"
+[[ $debug -ne 1 ]] && out "dl" "debug   = off"
+[[ $log -eq 1 ]]   && out "dl" "log     = $log_file"
+[[ $log -ne 1 ]]   && out "dl" "log     = off"
+[[ $crawl -eq 1 ]] && out "dl" "crawl   = on"
+[[ $crawl -ne 1 ]] && out "dl" "crawl   = off"
 
 tb_crawl 
+
+# end #
 
